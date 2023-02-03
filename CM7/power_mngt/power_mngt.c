@@ -1,0 +1,155 @@
+/*
+ * power_mngt.c
+ *
+ *  Created on: Feb 1, 2023
+ *      Author: tj
+ */
+
+#include "power_mngt.h"
+
+static int sPowerMode = PWR_FULL;
+
+int PWR_Set(int mode)
+{
+	int err = 0;
+	switch (mode)
+	{
+		case PWR_UNDEF :
+		case PWR_FULL :
+		{
+			err = SetSysClock_PLL_HSE(1, 0);
+			//set PMIC to RUN mode
+			HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_0, GPIO_PIN_RESET);
+
+			__HAL_RCC_SDMMC2_CLK_ENABLE();
+
+			__HAL_RCC_ETH1MAC_CLK_ENABLE();
+			__HAL_RCC_ETH1TX_CLK_ENABLE();
+			__HAL_RCC_ETH1RX_CLK_ENABLE();
+
+			__HAL_RCC_TIM3_CLK_ENABLE();
+			__HAL_RCC_QSPI_CLK_ENABLE();
+			__HAL_RCC_FMC_CLK_ENABLE();
+			__HAL_RCC_MDMA_CLK_ENABLE();
+
+			__HAL_RCC_SPI2_CLK_ENABLE();
+			__HAL_RCC_DMA2_CLK_ENABLE();
+
+			__HAL_RCC_SAI4_CLK_ENABLE();
+			__HAL_RCC_BDMA_CLK_ENABLE();
+
+			__HAL_RCC_USB_OTG_FS_CLK_ENABLE();
+
+			sPowerMode = PWR_FULL;
+
+		}
+		break;
+		case PWR_DVS :
+		{
+			sPowerMode = PWR_DVS;
+
+			//all LEDs off
+			HAL_GPIO_WritePin(GPIOK, GPIO_PIN_5, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(GPIOK, GPIO_PIN_6, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(GPIOK, GPIO_PIN_7, GPIO_PIN_SET);
+
+			HAL_RCC_DeInit();
+			err = SetSysClock_PLL_HSE(1, 1);
+			//set PMIC to STBY mode
+			HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_0, GPIO_PIN_SET);
+
+			__HAL_RCC_SDMMC2_CLK_DISABLE();
+
+			__HAL_RCC_ETH1MAC_CLK_DISABLE();
+			__HAL_RCC_ETH1TX_CLK_DISABLE();
+			__HAL_RCC_ETH1RX_CLK_DISABLE();
+
+			__HAL_RCC_TIM3_CLK_DISABLE();
+			__HAL_RCC_QSPI_CLK_DISABLE();
+			__HAL_RCC_FMC_CLK_DISABLE();
+			__HAL_RCC_MDMA_CLK_DISABLE();
+
+			__HAL_RCC_SPI2_CLK_DISABLE();
+			__HAL_RCC_DMA2_CLK_DISABLE();
+
+			__HAL_RCC_SAI4_CLK_DISABLE();
+			__HAL_RCC_BDMA_CLK_DISABLE();
+
+			__HAL_RCC_USB_OTG_FS_CLK_DISABLE();
+		}
+		break;
+		case PWR_SLEEP :
+		{
+			sPowerMode = PWR_SLEEP;
+
+			//stop the USB
+			__HAL_RCC_USB_OTG_HS_ULPI_CLK_DISABLE();
+			__HAL_RCC_USB_OTG_HS_CLK_DISABLE();
+
+			//stop the SYSTICK
+#if 0
+			LL_SYSTICK_DisableIT();
+#else
+			HAL_SuspendTick();
+#endif
+
+#ifdef NO_EFFECT
+			//bring the domains to STOP mode
+			__HAL_RCC_D2SRAM1_CLK_DISABLE();
+			__HAL_RCC_D2SRAM2_CLK_DISABLE();
+			__HAL_RCC_D2SRAM3_CLK_DISABLE();
+
+			__HAL_RCC_C2_D2SRAM1_CLK_DISABLE();
+			__HAL_RCC_C2_D2SRAM2_CLK_DISABLE();
+			__HAL_RCC_C2_D2SRAM3_CLK_DISABLE();
+
+			__HAL_RCC_DTCM1_CLK_SLEEP_ENABLE();
+			__HAL_RCC_DTCM2_CLK_SLEEP_ENABLE();
+			__HAL_RCC_ITCM_CLK_SLEEP_ENABLE();
+
+			__HAL_RCC_D1SRAM1_CLK_SLEEP_ENABLE();
+			__HAL_RCC_AXISRAM_CLK_SLEEP_ENABLE();
+			__HAL_RCC_D1SRAM1_CLK_SLEEP_ENABLE();
+			__HAL_RCC_D1SRAM1_CLK_SLEEP_ENABLE();
+
+			__HAL_RCC_D3SRAM1_CLK_SLEEP_ENABLE();
+			__HAL_RCC_FLASH_CLK_SLEEP_ENABLE();
+#endif
+
+			//hold ETH and USB chip in reset
+			HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_4, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_15, GPIO_PIN_RESET);
+
+#if 0
+			HAL_PWREx_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI /*PWR_STOPENTRY_WFE*/, PWR_D1_DOMAIN);
+			HAL_PWREx_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI /*PWR_STOPENTRY_WFE*/, PWR_D2_DOMAIN);
+			HAL_PWREx_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI /*PWR_STOPENTRY_WFE*/, PWR_D3_DOMAIN);
+#endif
+
+			__HAL_RCC_PLL2_DISABLE();
+			__HAL_RCC_PLL3_DISABLE();
+
+			////HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+
+			/* Clear the WU FLAG */
+			__HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
+			HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+
+			////__WFI();
+
+			HAL_GPIO_WritePin(GPIOK, GPIO_PIN_7, GPIO_PIN_RESET);
+		}
+		break;
+
+		default :
+		{
+		}
+	}
+
+	return err;
+}
+
+int PWR_GetMode()
+{
+	return sPowerMode;
+}
