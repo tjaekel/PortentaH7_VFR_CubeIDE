@@ -18,10 +18,10 @@ _Min_Stack_Size = 0x800 ; 	/* required amount of stack */
 /* Memories definition */
 MEMORY
 {
-  /* FLASH   (rx)   : ORIGIN = 0x08040000, LENGTH = 2048K - 0x40000    /* with Arduino Bootloader: actual start is 0x08000000 and actual length is 2048K */
-  /* DTCMRAM (rwx)  : ORIGIN = 0x20000000 + (((166 * 4) + 7) & 0xFFFFFFF8), LENGTH = 128K - (((166 * 4) + 7) & 0xFFFFFFF8) /* with Bootloader */
-  FLASH   (rx)   : ORIGIN = 0x08000000, LENGTH = 2048K	/* without Bootloader */
-  DTCMRAM (rw)   : ORIGIN = 0x20000000, LENGTH = 128K	/* without Bootloader */
+  FLASH   (rx)   : ORIGIN = 0x08040000, LENGTH = 2048K - 0x40000    /* with Arduino Bootloader: actual start is 0x08000000 and actual length is 2048K */
+  DTCMRAM (rwx)  : ORIGIN = 0x20000000 + (((166 * 4) + 7) & 0xFFFFFFF8), LENGTH = 128K - (((166 * 4) + 7) & 0xFFFFFFF8) /* with Bootloader */
+  /* FLASH   (rx)   : ORIGIN = 0x08000000, LENGTH = 2048K	/* without Bootloader */
+  /* DTCMRAM (rw)   : ORIGIN = 0x20000000, LENGTH = 128K	/* without Bootloader */
   
   RAM_D1 (rw)    : ORIGIN = 0x24000000, LENGTH = 512K	/* MPU config */
   RAM_D2 (rw)    : ORIGIN = 0x30000000, LENGTH = 288K	/* MPU config */
@@ -199,7 +199,7 @@ SECTIONS
   } >RAM_D2
 
 /* .d3ram (NOLOAD) : { */
-.d3ram : {
+.d3ram (NOLOAD) : {
     . = ALIGN(4);
     *(.pdm_buffer)
     *(.pcm_buffer)

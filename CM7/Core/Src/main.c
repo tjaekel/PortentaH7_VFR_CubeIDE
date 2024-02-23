@@ -47,7 +47,7 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .stack_size = 128,
-  .priority = (osPriority_t) osPriorityBelowNormal	//XXXX !!
+  .priority = (osPriority_t) osPriorityIdle //osPriorityBelowNormal	//XXXX !!
 };
 osThreadId_t UARTTaskHandle;
 const osThreadAttr_t UARTTask_attributes = {
@@ -141,6 +141,21 @@ int main(void)
   if (SetSysClock_PLL_HSE(1, 0) == 0)
 	  SYS_SetError(SYS_ERR_SYS_INIT);
   SystemCoreClockUpdate();
+
+#if 0
+  //seems to be enabled already, no effect, we use WFI in IdleThread - works the same way
+  __HAL_RCC_DTCM1_CLK_SLEEP_ENABLE();
+  __HAL_RCC_DTCM2_CLK_SLEEP_ENABLE();
+  __HAL_RCC_ITCM_CLK_SLEEP_ENABLE();
+
+  __HAL_RCC_D1SRAM1_CLK_SLEEP_ENABLE();
+  __HAL_RCC_AXISRAM_CLK_SLEEP_ENABLE();
+  __HAL_RCC_D1SRAM1_CLK_SLEEP_ENABLE();
+  __HAL_RCC_D1SRAM1_CLK_SLEEP_ENABLE();
+
+  __HAL_RCC_D3SRAM1_CLK_SLEEP_ENABLE();
+  __HAL_RCC_FLASH_CLK_SLEEP_ENABLE();
+#endif
 
   /* Initialize all configured peripherals - esp. LEDs */
   MX_GPIO_Init();
@@ -423,6 +438,7 @@ static void MX_GPIO_Init(void)
   * @param  argument: Not used
   * @retval None
   */
+#if 0
 void StartDefaultTask(void *argument)
 {
   (void)argument;
@@ -453,6 +469,32 @@ void StartDefaultTask(void *argument)
 	  }
   }
 }
+#else
+void StartDefaultTask(void *argument)
+{
+  (void)argument;
+  static int cnt = 0;
+  for(;;)
+  {
+	  //this will be woken up every 1 ms, due to SysTick
+	  if (PWR_GetMode() == PWR_FULL)
+  	  {
+  		  /* green blinking LED as "still alive" */
+		  if (cnt == 0)
+			  HAL_GPIO_WritePin(GPIOK, GPIO_PIN_6, GPIO_PIN_SET);		//off
+  		  if (cnt == 1000)
+  			  HAL_GPIO_WritePin(GPIOK, GPIO_PIN_6, GPIO_PIN_RESET);		//on
+  		  cnt++;
+  		  if (cnt >= 1200)
+  			  cnt = 0;
+  	  }
+
+	  //go to sleep, nothing to do, wait for an INT
+	  HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+  }
+}
+#endif
+
 
 unsigned char strRxBuf[UART_STR_SIZE];
 
