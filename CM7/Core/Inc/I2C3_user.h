@@ -27,6 +27,8 @@ int I2CUser_Read (uint16_t slaveAddr, uint8_t *pData, uint16_t num);
 int I2CUser_Write(uint16_t slaveAddr, uint8_t *pData, uint16_t num);
 int I2CUser_MemWrite(uint8_t *pData, uint16_t num);
 int I2CUser_MemRead(uint16_t regAddr, uint8_t *pData, uint16_t num);
+int I2CUser_MemWrite2(uint8_t *pData, uint16_t num);
+int I2CUser_MemRead2(uint16_t regAddr, uint8_t *pData, uint16_t num);
 int I2CUser_MemReadEx(uint16_t slaveAddr, uint16_t regAddr, uint8_t *pData, uint16_t num);
 
 int PMIC_Recover(void);				//to external board, recover PMIC on other Portenta H7

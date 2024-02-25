@@ -79,6 +79,8 @@ ECMD_DEC_Status CMD_res(TCMD_DEC_Results* res, EResultOut out);
 
 ECMD_DEC_Status CMD_i2crr(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_i2cwr(TCMD_DEC_Results *res, EResultOut out);
+ECMD_DEC_Status CMD_i2c2rr(TCMD_DEC_Results *res, EResultOut out);
+ECMD_DEC_Status CMD_i2c2wr(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_i2cclk(TCMD_DEC_Results *res, EResultOut out);
 
 ECMD_DEC_Status CMD_cgpio(TCMD_DEC_Results *res, EResultOut out);
@@ -314,6 +316,18 @@ const TCMD_DEC_Command Commands[] = {
 				.cmd = (const char *)"i2cwr",
 				.help = (const char *)"I2C write register <addr> [val ...]",
 				.func = CMD_i2cwr,
+				.manPage = 27,
+		},
+		{
+				.cmd = (const char *)"i2c2rr",
+				.help = (const char *)"I2C addr2 register read <addr> [num]",
+				.func = CMD_i2c2rr,
+				.manPage = 26,
+		},
+		{
+				.cmd = (const char *)"i2c2wr",
+				.help = (const char *)"I2C addr2 write register <addr> [val ...]",
+				.func = CMD_i2c2wr,
 				.manPage = 27,
 		},
 		{
@@ -1324,6 +1338,16 @@ ECMD_DEC_Status CMD_syscfg(TCMD_DEC_Results *res, EResultOut out)
 {
 	(void)res;
 
+	if (res->opt)
+	{
+		if (strncmp(res->opt, "-d", 2) == 0)
+		{
+			SYSCFG_Default();
+		}
+
+		return CMD_DEC_OK;
+	}
+
 	SYSCFG_print(out);
 
 	return CMD_DEC_OK;
@@ -1448,6 +1472,49 @@ ECMD_DEC_Status CMD_i2crr(TCMD_DEC_Results *res, EResultOut out)
 		res->val[1] = 1;
 
 	if ( ! I2CUser_MemRead((uint16_t)res->val[0], I2CBuf, res->val[1]))
+	{
+		for (i = 0; i < res->val[1]; i++)
+		{
+			print_log(out, "%02x ", I2CBuf[i]);
+		}
+		print_log(out, "\r\n");
+	}
+
+	return CMD_DEC_OK;
+}
+
+ECMD_DEC_Status CMD_i2c2wr(TCMD_DEC_Results *res, EResultOut out)
+{
+	(void)out;
+	int i;
+	if (res->num < 1)			//at least a register address
+		return CMD_DEC_INVPARAM;
+
+	if (res->num == 1)
+		res->num = 2;			//we write a value 0
+	if (res->num > sizeof(I2CBuf))
+		res->num = sizeof(I2CBuf);
+
+	for (i = 0; i < res->num; i++)
+		I2CBuf[i] = (uint8_t)res->val[i];
+
+	I2CUser_MemWrite2(I2CBuf, res->num);
+
+	return CMD_DEC_OK;
+}
+
+ECMD_DEC_Status CMD_i2c2rr(TCMD_DEC_Results *res, EResultOut out)
+{
+	int i;
+	if (res->num < 1)
+		return CMD_DEC_INVPARAM;
+
+	if (res->val[1] > (sizeof(I2CBuf) -1))
+		res->val[1] = sizeof(I2CBuf) -1;
+	if (res->val[1] == 0)
+		res->val[1] = 1;
+
+	if ( ! I2CUser_MemRead2((uint16_t)res->val[0], I2CBuf, res->val[1]))
 	{
 		for (i = 0; i < res->val[1]; i++)
 		{

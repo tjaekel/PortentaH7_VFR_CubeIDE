@@ -477,17 +477,20 @@ void StartDefaultTask(void *argument)
   for(;;)
   {
 	  //this will be woken up every 1 ms, due to SysTick
-	  if (PWR_GetMode() == PWR_FULL)
-  	  {
-  		  /* green blinking LED as "still alive" */
-		  if (cnt == 0)
-			  HAL_GPIO_WritePin(GPIOK, GPIO_PIN_6, GPIO_PIN_SET);		//off
-  		  if (cnt == 1000)
-  			  HAL_GPIO_WritePin(GPIOK, GPIO_PIN_6, GPIO_PIN_RESET);		//on
-  		  cnt++;
-  		  if (cnt >= 1200)
-  			  cnt = 0;
-  	  }
+	  if ( ! (GSysCfg.SysCfg & 0x1))
+	  {
+		  if (PWR_GetMode() == PWR_FULL)
+		  {
+			  /* green blinking LED as "still alive" */
+			  if (cnt == 0)
+				  HAL_GPIO_WritePin(GPIOK, GPIO_PIN_6, GPIO_PIN_SET);		//off
+			  if (cnt == 1000)
+				  HAL_GPIO_WritePin(GPIOK, GPIO_PIN_6, GPIO_PIN_RESET);		//on
+			  cnt++;
+			  if (cnt >= 1200)
+				  cnt = 0;
+		  }
+	  }
 
 	  //go to sleep, nothing to do, wait for an INT
 	  HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);

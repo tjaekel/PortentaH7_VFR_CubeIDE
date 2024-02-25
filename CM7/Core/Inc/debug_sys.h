@@ -49,20 +49,20 @@ typedef struct {
 	unsigned long			SPImode;				// 3: mode, LSB/MSB, word size
 	unsigned long			SPIcfg;					// 4: bit 23..16: word size, bit 12: HW/SW NSS, bit 8: early NSS on network, timing config: IDLE: 4b + NSS: 4b
 	unsigned long			I2Cbitrate;				// 5: enum 0..2
-	unsigned long			I2CslaveAddr;			// 6: slave addr 7b, not yet shifted
-	unsigned long			GPIOdir;				// 7: GPIO direction
-	unsigned long			GPIOod;					// 8: GPIO open drain mask
-	unsigned long			GPIOval;				// 9: GPIO output val
-	unsigned long			GPIOmask;				//10: which outputs to set
-	unsigned long			SPInoop;				//11: SPI noop code (for loopback)
-	unsigned long			ChipNo;					//12: SPI protocol, chip number
-	unsigned long			res13;					//13
-	unsigned long			res14;					//14
-	unsigned long			res15;					//15
-	unsigned long			res16;					//16
-	unsigned long			res17;					//17
-	unsigned long			res18;					//18
-	unsigned long			res19;					//19
+	unsigned long			I2CslaveAddr;			// 6: slave addr 7b, shifted down >>1
+	unsigned long			I2CslaveAddr2;			// 7:
+	unsigned long			GPIOdir;				// 8: GPIO direction
+	unsigned long			GPIOod;					// 9: GPIO open drain mask
+	unsigned long			GPIOval;				//10: GPIO output val
+	unsigned long			GPIOmask;				//11: which outputs to set
+	unsigned long			SPInoop;				//12: SPI noop code (for loopback)
+	unsigned long			ChipNo;					//13: SPI protocol, chip number
+	unsigned long			SysCfg;					//14: bit 0: = 1: heart beat LED off
+	unsigned long			res14;					//15
+	unsigned long			res15;					//16
+	unsigned long			res16;					//17
+	unsigned long			res17;					//18
+	unsigned long			res18;					//19: max. (20 registers in RTC)
 } tCFGparams;
 
 #define RTC_START_BKP_REG	RTC->BKP11R
@@ -75,6 +75,7 @@ extern unsigned long gIPAddr;
 
 //exported functions
 void SYSCFG_Init(void);
+void SYSCFG_Default(void);
 void SYSCFG_setCfg(int idx, unsigned long val);
 unsigned long SYSCFG_getCfg(int idx);
 void SYSCFG_print(EResultOut out);

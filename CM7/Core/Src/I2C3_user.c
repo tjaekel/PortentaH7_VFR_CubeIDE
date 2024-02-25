@@ -166,6 +166,14 @@ int I2CUser_MemWrite(uint8_t *pData, uint16_t num)
 	return I2CUser_Write((uint16_t)slaveAddr << 1, pData, num);
 }
 
+int I2CUser_MemWrite2(uint8_t *pData, uint16_t num)
+{
+	/* pData has as first entry the regAddr ! */
+	uint16_t slaveAddr;
+	slaveAddr = GSysCfg.I2CslaveAddr2;
+	return I2CUser_Write((uint16_t)slaveAddr << 1, pData, num);
+}
+
 int I2CUser_MemReadEx(uint16_t slaveAddr, uint16_t regAddr, uint8_t *pData, uint16_t num)
 {
 	int err = 0;
@@ -199,6 +207,34 @@ int I2CUser_MemRead(uint16_t regAddr, uint8_t *pData, uint16_t num)
 	HAL_StatusTypeDef i2cerr;
 
 	slaveAddr = GSysCfg.I2CslaveAddr;
+	if (osSemaphoreAcquire(xSemaphoreI2C, portMAX_DELAY /*1000*/) == osOK)
+	{
+		i2cerr = HAL_I2C_Mem_Read(&hi2c3, (uint16_t)slaveAddr << 1, regAddr, I2C_MEMADD_SIZE_8BIT, pData, num, USER_I2C_TIMEOUT);
+		if (i2cerr == HAL_OK)
+			err = 0;
+		else
+			err = 1;
+		osSemaphoreRelease(xSemaphoreI2C);
+
+		if ((GDebug & DBG_I2C) && (err == 1))
+		{
+			print_log(UART_OUT, "\r\n*D: I2C MEMREAD err: %x\r\n", i2cerr);
+			print_log(UART_OUT, " ErrCode: %lx\r\n", hi2c3.ErrorCode);
+			print_log(UART_OUT, " State  : %x\r\n", hi2c3.State);
+		}
+		return err;
+	}
+	else
+		return 1;
+}
+
+int I2CUser_MemRead2(uint16_t regAddr, uint8_t *pData, uint16_t num)
+{
+	int err = 0;
+	uint16_t slaveAddr;
+	HAL_StatusTypeDef i2cerr;
+
+	slaveAddr = GSysCfg.I2CslaveAddr2;
 	if (osSemaphoreAcquire(xSemaphoreI2C, portMAX_DELAY /*1000*/) == osOK)
 	{
 		i2cerr = HAL_I2C_Mem_Read(&hi2c3, (uint16_t)slaveAddr << 1, regAddr, I2C_MEMADD_SIZE_8BIT, pData, num, USER_I2C_TIMEOUT);
