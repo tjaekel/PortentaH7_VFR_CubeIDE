@@ -12,7 +12,7 @@ This project is __not__ an _Arduino/mbed sketch_. It is native C-code (not C++),
 ## HW Requirements
 - Portenta H7 MCU module
 - Portenta H7 VisionShield: using ETH connection and PDM MICs on board
-- (optional) Breakout Board: using ETH and USB-A connection
+- (optional) Breakout Board: using ETH and USB-A connection, external PDM MICs, I2C for IMU
 
 ## Features of the project
 - it provides a UART shell via the USB-C connection, see "help" command there
@@ -20,11 +20,13 @@ This project is __not__ an _Arduino/mbed sketch_. It is native C-code (not C++),
 - Network support: ETH (not WiFi), for web server running on MCU, UDP transfer, e.g. Audio via UDP, network commands to do SPI, I2C
 - using SDRAM: used for Pico-C scripts
 - Pico-C: a C-code interpreter (no compiler needed, write C-code scripts)
-- PDM MICs for Audio to host (as VBAN, VB-Audio Voicemeeter) - via ETH network
+- PDM MICs for Audio (on Vision Shield) to host (as VBAN, VB-Audio Voicemeeter) - via ETH network
 - two PWM channels for RC model servos
 - QSPI flash: used for man pages
 - SPI and I2C peripherals
 - USB-A on Breakout Board (for Audio, prepared for USB as external memory device, a second VCP UART)
+- use external PDM MIC on Breakout Board
+- I2C and command for 9-degree IMU sensor
 
 ## Full Open Source
 The project has all source code files, including the PMIC configuration, INT vectors, drivers, startup - not using any Arduino/mbed library.
