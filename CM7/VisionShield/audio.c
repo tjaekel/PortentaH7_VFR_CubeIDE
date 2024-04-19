@@ -493,7 +493,7 @@ void __attribute__((section(".itcmram"))) audio_pendsv_callback(void)
         xfer_status &= ~(DMA_XFER_HALF);
 
         // Convert PDM samples to PCM
-        for (int i=0; i<g_i_channels; i++) {
+        for (int i=0; i</*g_i_channels*/1; i++) {
             //PDM_Filter(&((uint8_t*)PDM_BUFFER)[i], &((int16_t*)g_pcmbuf)[i], &PDM_FilterHandler[i]);
         	PDM_Filter(&((uint8_t*)PDM_BUFFER)[i], p + i, &PDM_FilterHandler[i]);
         }
@@ -512,7 +512,7 @@ void __attribute__((section(".itcmram"))) audio_pendsv_callback(void)
         xfer_status &= ~(DMA_XFER_FULL);
 
         // Convert PDM samples to PCM
-        for (int i=0; i<g_i_channels; i++) {
+        for (int i=0; i</*g_i_channels*/1; i++) {
             //PDM_Filter(&((uint8_t*)PDM_BUFFER)[PDM_BUFFER_SIZE / 2 + i], &((int16_t*)g_pcmbuf)[PCM_BUFFER_SIZE / 2 + i], &PDM_FilterHandler[i]);
         	PDM_Filter(&((uint8_t*)PDM_BUFFER)[PDM_BUFFER_SIZE / 2 + i], p + i, &PDM_FilterHandler[i]);
         }
@@ -624,6 +624,31 @@ int __attribute__((section(".itcmram"))) SendUDP(const unsigned char *b, unsigne
 		if (err != ERR_OK)
 		{
 		}
+
+		netbuf_delete(nb);
+
+		return (int)err;
+	}
+	return -100;		/* special, to separate from err codes */
+}
+
+int __attribute__((section(".itcmram"))) SendTOFUDP(const unsigned char *b, unsigned int len)
+{
+	err_t err;
+	struct netbuf *nb;
+	if (udpIPdest.addr != 0)
+	{
+		SCB_CleanDCache_by_Addr((uint32_t *)b, (int32_t)(((len + 32)/32) * 32));
+
+		nb = netbuf_new();
+		netbuf_ref(nb, b, len /*+ 1*/);
+
+		err = netconn_sendto(connUDP, nb, &udpIPdest, 8080);
+		if (err != ERR_OK)
+		{
+		}
+
+		HAL_GPIO_TogglePin(GPIOK, GPIO_PIN_6);
 
 		netbuf_delete(nb);
 

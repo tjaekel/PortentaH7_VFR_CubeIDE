@@ -109,9 +109,11 @@ LoopCopyITCMInit:
 /*
 	.extern HardFault_Handler_C
 */
+/*
 	.global HardFault_Handler
 	.section .text.HardFault_Handler,"ax",%progbits
 HardFault_Handler:
+*/
 /*
 	TST 	LR, #4
   	ITE 	EQ
@@ -120,9 +122,11 @@ HardFault_Handler:
   	LDR		R1,	=HardFault_Handler_C
   	BX		R1
 */
+/*
 HardFault_Loop:
 	b	HardFault_Loop
   	.size	HardFault_Handler, .-HardFault_Handler
+*/
 
 	.global Default_Handler
     .section  .text.Default_Handler,"ax",%progbits
