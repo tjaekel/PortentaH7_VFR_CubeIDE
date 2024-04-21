@@ -35,7 +35,7 @@
 #define PCM_BUFFER_SIZE     (48 * 2 * 2)	//unclear the size relation between both
 
 void py_audio_deinit();
-int py_audio_init(size_t g_channels, uint32_t frequency, int gain_db, float highpass);
+int py_audio_init(size_t g_channels, uint32_t frequency, int gain_db, float highpass, int gen_sine);
 void py_audio_gain_set(int gain_db);
 void audio_pendsv_callback(void);
 void py_audio_start_streaming();

@@ -24,6 +24,8 @@
 #include "lwip/api.h"
 #include "lwip/err.h"
 
+#include <math.h>
+
 static CRC_HandleTypeDef hcrc;
 static SAI_HandleTypeDef hsai;
 static DMA_HandleTypeDef hdma_sai_rx;
@@ -44,20 +46,22 @@ static PDM_Filter_Config_t   PDM_FilterConfig[2];
 #define AUDIO_FREQUENCY_44K           ((uint32_t)44100)
 #define AUDIO_FREQUENCY_32K           ((uint32_t)32000)
 #define AUDIO_FREQUENCY_22K           ((uint32_t)22050)
+#define AUDIO_FREQUENCY_24K           ((uint32_t)24000)
 #define AUDIO_FREQUENCY_16K           ((uint32_t)16000)
 #define AUDIO_FREQUENCY_11K           ((uint32_t)11025)
 #define AUDIO_FREQUENCY_8K            ((uint32_t)8000)
 
-
 static volatile uint32_t xfer_status = 0;
+
+int gGen_sine = 0;
 
 // BDMA can only access D3 SRAM4 memory.
 //int8_t* PDM_BUFFER = (uint16_t*)0x38000000;
 uint8_t PDM_BUFFER[PDM_BUFFER_SIZE] __attribute__ ((section(".pdm_buffer")));
-#if 0
+#if 1
 //we copy directly into USB buffer
-int16_t PCM_BUFFER[PCM_BUFFER_SIZE] __attribute__ ((section(".dtcmram"))); //or: .pcm_buffer
-volatile int16_t *g_pcmbuf = PCM_BUFFER;
+int16_t PCM_BUFFER[PCM_BUFFER_SIZE] __attribute__ ((section(".pcm_buffer"))); //or: .pcm_buffer or .dtcmram
+int16_t *g_pcmbuf = PCM_BUFFER;
 #endif
 
 //VBAN buffer: 2 * 5 of such frames plus each with the 28 byte header
@@ -149,13 +153,15 @@ static uint32_t get_decimation_factor(uint32_t decimation)
 static uint8_t get_mck_div(uint32_t frequency)
 {
     switch(frequency){
-        case AUDIO_FREQUENCY_8K:     return 48;  //SCK_x = sai_x_ker_ck/48 =  1024KHz  Ffs = SCK_x/64 =  16KHz stereo
+        case AUDIO_FREQUENCY_8K:     return 48;  //SCK_x = sai_x_ker_ck/48 =  1024KHz  Ffs = SCK_x/64 =  16KHz stereo - OK
         case AUDIO_FREQUENCY_11K:    return  8;  //SCK_x = sai_x_ker_ck/8  =  1411KHz  Ffs = SCK_x/64 =  22KHz stereo
-        case AUDIO_FREQUENCY_16K:    return 24;  //SCK_x = sai_x_ker_ck/24 =  2048KHz  Ffs = SCK_x/64 =  32KHz stereo
+        case AUDIO_FREQUENCY_16K:    return 24;	//24;  //SCK_x = sai_x_ker_ck/24 =  2048KHz  Ffs = SCK_x/64 =  32KHz stereo - OK
+        /* 16K works just as single MIC mono, VBAN is correct, with 16 or 20 - it is stereo but VBAN has an error! */
         case AUDIO_FREQUENCY_22K:    return  4;  //SCK_x = sai_x_ker_ck/4  =  2822KHz  Ffs = SCK_x/64 =  44KHz stereo
+        case AUDIO_FREQUENCY_24K:    return 16;  //SCK_x = sai_x_ker_ck/4  =  xxxxKHz  Ffs = SCK_x/64 =  48KHz stereo
         case AUDIO_FREQUENCY_32K:    return 12;  //SCK_x = sai_x_ker_ck/12 =  4096KHz  Ffs = SCK_x/64 =  64KHz stereo
         case AUDIO_FREQUENCY_44K:    return  2;  //SCK_x = sai_x_ker_ck/2  =  5644KHz  Ffs = SCK_x/64 =  88KHz stereo
-        case AUDIO_FREQUENCY_48K:    return  8;  //SCK_x = sai_x_ker_ck/8  =  6144KHz  Ffs = SCK_x/64 =  96KHz stereo
+        case AUDIO_FREQUENCY_48K:    return  8;  //SCK_x = sai_x_ker_ck/8  =  6144KHz  Ffs = SCK_x/64 =  96KHz stereo - OK
         case AUDIO_FREQUENCY_64K:    return  6;  //SCK_x = sai_x_ker_ck/6  =  8192KHz  Ffs = SCK_x/64 = 128KHz stereo
         case AUDIO_FREQUENCY_96K:    return  4;  //SCK_x = sai_x_ker_ck/4  = 12288KHz  Ffs = SCK_x/64 = 192KHz stereo
         case AUDIO_FREQUENCY_192K:   return  2;  //SCK_x = sai_x_ker_ck/2  = 24576KHz  Ffs = SCK_x/64 = 384KHz stereo
@@ -175,7 +181,7 @@ bool isBoardRev2(void) {
   }
   return (hse_speed == 25000000);
 #else
-  return 1;
+  return 1;		/* return as 25 MHz on board */
 #endif
 }
 
@@ -201,15 +207,17 @@ void sai_init(void)
     HAL_GPIO_Init(AUDIO_SAI_D1_PORT, &GPIO_InitStruct);
 }
 
-int py_audio_init(size_t channels, uint32_t frequency, int gain_db, float highpass)
+int py_audio_init(size_t channels, uint32_t frequency, int gain_db, float highpass, int gen_sine)
 {
-#if 0
+#if 1
     RCC_PeriphCLKInitTypeDef rcc_ex_clk_init_struct;
 
     HAL_RCCEx_GetPeriphCLKConfig(&rcc_ex_clk_init_struct);
 
     if((frequency == AUDIO_FREQUENCY_11K) || (frequency == AUDIO_FREQUENCY_22K) || (frequency == AUDIO_FREQUENCY_44K))
     {
+    	/* ATTENTION: not tested, not trimmed ! 22K does not work! */
+
         /* SAI clock config:
         PLL3_VCO Input = HSE_VALUE/PLL3M = 1 Mhz
         PLL3_VCO Output = PLL3_VCO Input * PLL3N = 429 Mhz
@@ -229,16 +237,28 @@ int py_audio_init(size_t channels, uint32_t frequency, int gain_db, float highpa
         sai_x_ker_ck = PLL3_VCO Output/PLL3P = 344/7 = 49.142 Mhz */
         rcc_ex_clk_init_struct.PeriphClockSelection = RCC_PERIPHCLK_SAI4A;
         rcc_ex_clk_init_struct.Sai4AClockSelection = RCC_SAI4ACLKSOURCE_PLL3;
+#if 0
         rcc_ex_clk_init_struct.PLL3.PLL3P = 7;
         rcc_ex_clk_init_struct.PLL3.PLL3Q = 1;
         rcc_ex_clk_init_struct.PLL3.PLL3R = 2;
         rcc_ex_clk_init_struct.PLL3.PLL3N = 344;
         rcc_ex_clk_init_struct.PLL3.PLL3M = isBoardRev2() ? 25 : 27;
+#else
+        /* trimmed! */
+        rcc_ex_clk_init_struct.PLL3.PLL3M = 2;
+        rcc_ex_clk_init_struct.PLL3.PLL3N = 23;
+        rcc_ex_clk_init_struct.PLL3.PLL3P = 6;					//SAI4, PDM MIC., trimmed for 48KHz
+        rcc_ex_clk_init_struct.PLL3.PLL3Q = 6;					//USB 48 KHz
+        rcc_ex_clk_init_struct.PLL3.PLL3R = 4;
+        rcc_ex_clk_init_struct.PLL3.PLL3RGE = RCC_PLL3VCIRANGE_1;
+        rcc_ex_clk_init_struct.PLL3.PLL3VCOSEL = RCC_PLL3VCOWIDE;
+        rcc_ex_clk_init_struct.PLL3.PLL3FRACN = 4860;			//we trim here the SAI to be in sync with USB 48 MHz - it depends on PC USB audio clock!
+#endif
     }
 
     HAL_RCCEx_PeriphCLKConfig(&rcc_ex_clk_init_struct);
 #endif
-    /* instead we do this in system_clock.s, as, for SAI4A:
+    /* instead: we do this in system_clock.s, as, for SAI4A:
      * PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC | RCC_PERIPHCLK_USB | RCC_PERIPHCLK_SPI2 | RCC_PERIPHCLK_QSPI | RCC_PERIPHCLK_ADC | RCC_PERIPHCLK_SAI4A | RCC_PERIPHCLK_TIM;
      * PeriphClkInitStruct.UsbClockSelection = RCC_USBCLKSOURCE_HSI48; //RCC_USBCLKSOURCE_PLL; 		//RCC_USBCLKSOURCE_PLL3;		//RCC_USBCLKSOURCE_HSI48;
      * PeriphClkInitStruct.QspiClockSelection = RCC_QSPICLKSOURCE_PLL2;	//RCC_QSPICLKSOURCE_PLL; //RCC_QSPICLKSOURCE_PLL2;
@@ -258,6 +278,7 @@ int py_audio_init(size_t channels, uint32_t frequency, int gain_db, float highpa
         (frequency != AUDIO_FREQUENCY_11K) &&
         (frequency != AUDIO_FREQUENCY_16K) &&
         (frequency != AUDIO_FREQUENCY_22K) &&
+		(frequency != AUDIO_FREQUENCY_24K) &&
         (frequency != AUDIO_FREQUENCY_32K) &&
         (frequency != AUDIO_FREQUENCY_44K) &&
         (frequency != AUDIO_FREQUENCY_48K) &&
@@ -280,23 +301,22 @@ int py_audio_init(size_t channels, uint32_t frequency, int gain_db, float highpa
     }
     uint32_t samples_per_channel = (PDM_BUFFER_SIZE * 8) / (decimation_factor * g_i_channels * 2); // Half a transfer
 
+    /* ATT: we have just one MIC working (left), not both - WHY? */
     hsai.Instance                    = AUDIO_SAI;
     hsai.Init.Protocol               = SAI_FREE_PROTOCOL;
     hsai.Init.AudioMode              = SAI_MODEMASTER_RX;
     hsai.Init.DataSize               = (g_i_channels == 1) ? SAI_DATASIZE_8 : SAI_DATASIZE_16;
-    //hsai.Init.DataSize               = (g_i_channels == 1) ? SAI_DATASIZE_16 : SAI_DATASIZE_32;
     hsai.Init.FirstBit               = SAI_FIRSTBIT_LSB;
-    //hsai.Init.FirstBit               = SAI_FIRSTBIT_MSB;
-    hsai.Init.ClockStrobing          = SAI_CLOCKSTROBING_RISINGEDGE;
+    hsai.Init.ClockStrobing          = SAI_CLOCKSTROBING_FALLINGEDGE;	//SAI_CLOCKSTROBING_RISINGEDGE;
     hsai.Init.Synchro                = SAI_ASYNCHRONOUS;
     hsai.Init.OutputDrive            = SAI_OUTPUTDRIVE_DISABLE;
     hsai.Init.NoDivider              = SAI_MASTERDIVIDER_DISABLE;
-    hsai.Init.FIFOThreshold          = SAI_FIFOTHRESHOLD_1QF;
+    hsai.Init.FIFOThreshold          = SAI_FIFOTHRESHOLD_1QF;	//SAI_FIFOTHRESHOLD_EMPTY;	//SAI_FIFOTHRESHOLD_1QF;
     hsai.Init.SynchroExt             = SAI_SYNCEXT_DISABLE;
     hsai.Init.AudioFrequency         = SAI_AUDIO_FREQUENCY_MCKDIV;
     hsai.Init.MonoStereoMode         = (g_i_channels == 1)  ? SAI_MONOMODE: SAI_STEREOMODE;
     hsai.Init.CompandingMode         = SAI_NOCOMPANDING;
-    hsai.Init.TriState               = SAI_OUTPUT_RELEASED;
+    hsai.Init.TriState               = SAI_OUTPUT_NOTRELEASED;	//SAI_OUTPUT_RELEASED;
 
     // The master clock output (MCLK_x) is disabled and the SAI clock
     // is passed out to SCK_x bit clock. SCKx frequency = SAI_KER_CK / MCKDIV
@@ -309,18 +329,19 @@ int py_audio_init(size_t channels, uint32_t frequency, int gain_db, float highpa
     hsai.Init.PdmInit.MicPairsNbr    = 1;
     hsai.Init.PdmInit.ClockEnable    = SAI_PDM_CLOCK1_ENABLE;
 
-    hsai.FrameInit.FrameLength       = 16;
-    //hsai.FrameInit.FrameLength       = 32;
+    hsai.FrameInit.FrameLength       = 16;		//the same
     hsai.FrameInit.ActiveFrameLength = 1;
     hsai.FrameInit.FSDefinition      = SAI_FS_STARTFRAME;
     hsai.FrameInit.FSPolarity        = SAI_FS_ACTIVE_HIGH;
     hsai.FrameInit.FSOffset          = SAI_FS_FIRSTBIT;
 
     hsai.SlotInit.FirstBitOffset     = 0;
-    hsai.SlotInit.SlotSize           = SAI_SLOTSIZE_DATASIZE;		//it is 0!
-    //hsai.SlotInit.SlotSize           = SAI_SLOTSIZE_16B;
+    hsai.SlotInit.SlotSize           = SAI_SLOTSIZE_DATASIZE;
+    //the same
     hsai.SlotInit.SlotNumber         = (g_i_channels == 1) ? 2 : 1;
     hsai.SlotInit.SlotActive         = (g_i_channels == 1) ? (SAI_SLOTACTIVE_0 | SAI_SLOTACTIVE_1) : SAI_SLOTACTIVE_0;
+    ////hsai.SlotInit.SlotNumber         = (g_i_channels == 2) ? 2 : 1;
+    ////hsai.SlotInit.SlotActive         = (g_i_channels == 2) ? (SAI_SLOTACTIVE_0 | SAI_SLOTACTIVE_1) : SAI_SLOTACTIVE_0;
 
     // Initialize the SAI
     HAL_SAI_DeInit(&hsai);
@@ -370,21 +391,19 @@ int py_audio_init(size_t channels, uint32_t frequency, int gain_db, float highpa
     __HAL_CRC_DR_RESET(&hcrc);
 
     // Configure PDM filters
-    for (int i=0; i<g_i_channels; i++) {
-        PDM_FilterHandler[i].bit_order  = PDM_FILTER_BIT_ORDER_MSB;
+    for (int i = 0; i < g_i_channels; i++)
+    {
+    	PDM_FilterHandler[i].bit_order  = PDM_FILTER_BIT_ORDER_MSB;
+    	PDM_FilterHandler[i].endianness = PDM_FILTER_ENDIANNESS_LE;
+    	PDM_FilterHandler[i].high_pass_tap = (uint32_t) (highpass * 2147483647U); // coff * (2^31-1)
+    	PDM_FilterHandler[i].out_ptr_channels = g_o_channels;
+    	PDM_FilterHandler[i].in_ptr_channels  = g_i_channels;
+    	PDM_Filter_Init(&PDM_FilterHandler[i]);
 
-        PDM_FilterHandler[i].endianness = PDM_FILTER_ENDIANNESS_LE;
-        //PDM_FilterHandler[i].endianness = PDM_FILTER_ENDIANNESS_BE;
-
-        PDM_FilterHandler[i].high_pass_tap = (uint32_t) (highpass * 2147483647U); // coff * (2^31-1)
-        PDM_FilterHandler[i].out_ptr_channels = g_o_channels;
-        PDM_FilterHandler[i].in_ptr_channels  = g_i_channels;
-        PDM_Filter_Init(&PDM_FilterHandler[i]);
-
-        PDM_FilterConfig[i].mic_gain = gain_db;
-        PDM_FilterConfig[i].output_samples_number = samples_per_channel;
-        PDM_FilterConfig[i].decimation_factor = decimation_factor_const;
-        PDM_Filter_setConfig(&PDM_FilterHandler[i], &PDM_FilterConfig[i]);
+    	PDM_FilterConfig[i].mic_gain = gain_db;
+    	PDM_FilterConfig[i].output_samples_number = samples_per_channel;
+    	PDM_FilterConfig[i].decimation_factor = decimation_factor_const;
+    	PDM_Filter_setConfig(&PDM_FilterHandler[i], &PDM_FilterConfig[i]);
     }
 
     uint32_t min_buff_size = samples_per_channel * g_o_channels * sizeof(int16_t);
@@ -410,13 +429,45 @@ int py_audio_init(size_t channels, uint32_t frequency, int gain_db, float highpa
     	*p = 'A'; *(p + VBAN_OFF) = 'A'; p++;
     	*p = 'N'; *(p + VBAN_OFF) = 'N'; p++;
 
-    	*p = 0x03; *(p +VBAN_OFF) = 0x03; p++;
+    	switch (frequency)
+    	{
+    	case AUDIO_FREQUENCY_48K :
+    				*p = 3; *(p +VBAN_OFF) = 3; p++;
+    				break;
+    	case AUDIO_FREQUENCY_8K :
+    	    		*p = 7; *(p +VBAN_OFF) = 7; p++;
+    	    		break;
+    	case AUDIO_FREQUENCY_11K :
+    	    		*p = 14; *(p +VBAN_OFF) = 14; p++;
+    	    		break;
+    	case AUDIO_FREQUENCY_16K :
+    	    		*p = 8; *(p +VBAN_OFF) = 8; p++;
+    	    		break;
+    	case AUDIO_FREQUENCY_22K :
+    	    		*p = 15; *(p +VBAN_OFF) = 15; p++;
+    	    		break;
+    	case AUDIO_FREQUENCY_24K :
+    	    	    *p = 2; *(p +VBAN_OFF) = 2; p++;
+    	    	    break;
+    	case AUDIO_FREQUENCY_32K :
+    	    		*p = 9; *(p +VBAN_OFF) = 9; p++;
+    	    		break;
+    	case AUDIO_FREQUENCY_44K :
+    	    		*p = 16; *(p +VBAN_OFF) = 16; p++;
+    	    		break;
+    	case AUDIO_FREQUENCY_64K :
+    	    	    *p = 10; *(p +VBAN_OFF) = 10; p++;
+    	    	    break;
+    	case AUDIO_FREQUENCY_96K :
+    	    	    *p = 4; *(p +VBAN_OFF) = 4; p++;
+    	    	    break;
+    	}
 
-    	*p = VBAN_NUM_FRAMES*48-1; *(p + VBAN_OFF) = VBAN_NUM_FRAMES*48-1; p++;
+    	*p = VBAN_NUM_FRAMES*48-1; *(p + VBAN_OFF) = VBAN_NUM_FRAMES*48-1; p++;	//number samples (per channel?)
 
-    	*p = 1; *(p + VBAN_OFF) = 1; p++;
+    	*p = 1; *(p + VBAN_OFF) = 1; p++;			//number channels: 1 = two channels
 
-    	*p = 0x01; *(p + VBAN_OFF) = 0x01; p++;
+    	*p = 0x01; *(p + VBAN_OFF) = 0x01; p++;		//16bit signed samples
 
     	*p = 'S'; *(p + VBAN_OFF) = 'S'; p++;
     	*p = 't'; *(p + VBAN_OFF) = 't'; p++;
@@ -433,9 +484,67 @@ int py_audio_init(size_t channels, uint32_t frequency, int gain_db, float highpa
     	*p = ' '; *(p + VBAN_OFF) = ' '; p++;
     	*p = ' '; *(p + VBAN_OFF) = ' '; p++;
     	*p = ' '; *(p + VBAN_OFF) = ' '; p++;
-    	*p = ' '; *(p + VBAN_OFF) = ' ';
+    	*p = ' '; *(p + VBAN_OFF) = ' '; p++;
 
-    	//SeqNum later set
+    	//SeqNum we set later
+
+    	if (gen_sine)
+    	{
+    		gGen_sine = 1;
+    		//preset samples as 1KHz sine wave, for 48 KHz sample rate
+    		p++; p++; p++; p++;
+    		int16_t *s = (int16_t *)p;
+    		int16_t v;
+    		double d;
+    		int i;
+
+    		if (frequency == AUDIO_FREQUENCY_32K)
+    			frequency -= frequency / 2;			//32KHz does not fit in buffer, increase to *1.5
+    		frequency /= 1000;
+
+    		if (gain_db > 50)
+    			gain_db = 50;
+    		double dGain_dB;
+
+    		if (gain_db == 1)
+    			dGain_dB = 0.00006;
+    		else if (gain_db < 3)
+    		    dGain_dB = 0.000078;
+    		else if (gain_db < 4)
+    			dGain_dB = 0.0001;
+    		else if (gain_db < 5)
+    			dGain_dB = 0.001;
+    		else if (gain_db < 6)
+    			dGain_dB = 0.01;
+    		else if (gain_db < 7)
+    			dGain_dB = 0.1;
+    		else if (gain_db < 8)
+    			dGain_dB = 0.2;
+    		else if (gain_db < 9)
+    		    dGain_dB = 0.3;
+    		else if (gain_db < 10)
+    			dGain_dB = 0.4;
+    		else if (gain_db < 20)
+    			dGain_dB = 0.5;
+    		else if (gain_db < 30)
+    		    dGain_dB = 0.6;
+    		else if (gain_db < 40)
+    		    dGain_dB = 0.7;
+    		else if (gain_db < 55)
+    		    dGain_dB = 0.8;
+    		else
+    		    dGain_dB = 0.9;
+
+    		for (i = 0; i < ((VBAN_NUM_FRAMES * 48 * 2 * 2) / (sizeof(int16_t) * 2)); i++)
+    		{
+    			d = sin((2 * M_PI * i) / frequency);
+    			v = (int16_t)(d * 32767.0 * dGain_dB);		//amplitude scaling
+    			*s = v; *(s + (VBAN_OFF / 2)) = v; s++;
+    			*s = v; *(s + (VBAN_OFF / 2)) = v; s++;		//both channels
+    		}
+    	}
+    	else
+    		gGen_sine = 0;
     }
 
     return 1;
@@ -444,13 +553,14 @@ int py_audio_init(size_t channels, uint32_t frequency, int gain_db, float highpa
 void py_audio_gain_set(int gain_db)
 {
     // Configure PDM filters
-    for (int i=0; i<g_i_channels; i++) {
-        PDM_FilterConfig[i].mic_gain = gain_db;
-        //This will be called only after init so PDM_FilterConfig structure is already filled
-        //PDM_FilterConfig[i].output_samples_number = samples_per_channel;
-        //PDM_FilterConfig[i].decimation_factor = decimation_factor_const;
-        PDM_Filter_setConfig(&PDM_FilterHandler[i], &PDM_FilterConfig[i]);
-    }
+	for (int i = 0; i < g_i_channels;i++)
+	{
+		PDM_FilterConfig[i].mic_gain = gain_db;
+		//This will be called only after init so PDM_FilterConfig structure is already filled
+		//PDM_FilterConfig.output_samples_number = samples_per_channel;
+		//PDM_FilterConfig.decimation_factor = decimation_factor_const;
+		PDM_Filter_setConfig(&PDM_FilterHandler[i], &PDM_FilterConfig[i]);
+	}
 }
 
 void py_audio_deinit(void)
@@ -475,8 +585,6 @@ void py_audio_deinit(void)
 
     g_i_channels = AUDIO_SAI_NBR_CHANNELS;
     g_o_channels = AUDIO_SAI_NBR_CHANNELS;
-    //free(g_pcmbuf);
-    //g_pcmbuf = NULL;
 }
 
 /* who is the caller? */
@@ -484,8 +592,6 @@ void __attribute__((section(".itcmram"))) audio_pendsv_callback(void)
 {
 	//TODO: do it directly to USB buffer
 	extern int16_t *GET_USBBuffer(void);
-	int16_t *p;
-	p = GET_USBBuffer();
 
     // Check for half transfer complete.
     if ((xfer_status & DMA_XFER_HALF)) {
@@ -493,10 +599,11 @@ void __attribute__((section(".itcmram"))) audio_pendsv_callback(void)
         xfer_status &= ~(DMA_XFER_HALF);
 
         // Convert PDM samples to PCM
-        for (int i=0; i</*g_i_channels*/1; i++) {
-            //PDM_Filter(&((uint8_t*)PDM_BUFFER)[i], &((int16_t*)g_pcmbuf)[i], &PDM_FilterHandler[i]);
-        	PDM_Filter(&((uint8_t*)PDM_BUFFER)[i], p + i, &PDM_FilterHandler[i]);
-        }
+        if ( ! gGen_sine)
+        	for (int i = 0; i < g_i_channels; i++)
+        	{
+        		PDM_Filter(&((uint8_t*)PDM_BUFFER)[i], &((int16_t*)g_pcmbuf)[i], &PDM_FilterHandler[i]);
+        	}
 #if 0
         samples = PCM_BUFFER;
 #endif
@@ -512,10 +619,11 @@ void __attribute__((section(".itcmram"))) audio_pendsv_callback(void)
         xfer_status &= ~(DMA_XFER_FULL);
 
         // Convert PDM samples to PCM
-        for (int i=0; i</*g_i_channels*/1; i++) {
-            //PDM_Filter(&((uint8_t*)PDM_BUFFER)[PDM_BUFFER_SIZE / 2 + i], &((int16_t*)g_pcmbuf)[PCM_BUFFER_SIZE / 2 + i], &PDM_FilterHandler[i]);
-        	PDM_Filter(&((uint8_t*)PDM_BUFFER)[PDM_BUFFER_SIZE / 2 + i], p + i, &PDM_FilterHandler[i]);
-        }
+        if ( ! gGen_sine)
+        	for (int i = 0; i < g_i_channels; i++)
+        	{
+        		PDM_Filter(&((uint8_t*)PDM_BUFFER)[PDM_BUFFER_SIZE / 2 + i], &((int16_t*)g_pcmbuf)[i], &PDM_FilterHandler[i]);
+        	}
 #if 0
         samples = &PCM_BUFFER[PCM_BUFFER_SIZE / 2];
 #endif
@@ -535,7 +643,9 @@ void __attribute__((section(".itcmram"))) audio_pendsv_callback(void)
     		vbanp += (28 + VBAN_NUM_FRAMES * PCM_BUFFER_SIZE) + 28 + (VBANBufIdx - VBAN_NUM_FRAMES) * PCM_BUFFER_SIZE;
     	else
     		vbanp += 28 + VBANBufIdx * PCM_BUFFER_SIZE;
-    	memcpy(vbanp, p, PCM_BUFFER_SIZE);
+    	if ( ! gGen_sine)
+    		/* copy PCM samples to output buffer */
+    		memcpy(vbanp, g_pcmbuf, PCM_BUFFER_SIZE);
 
     	//update VBAN SeqNum
     	if (VBANBufIdx == 0)
@@ -586,11 +696,25 @@ void py_audio_stop_streaming(void)
 }
 
 /* global function to init and start MIC audio */
-void PDM_MIC_Init(unsigned long gain)
+void PDM_MIC_Init(unsigned long gain, unsigned long freq, int gen_sine)
 {
+	uint32_t rFreq;
 	if (gain)
 	{
-		if (py_audio_init(2, 48000, (int)gain, 0.9883f))
+		/* REMARK: 16000 is just single MIC (left) and mono - why?
+		 *
+		 * 44100, 22050 etc. not tested and not working!
+		 * 8 KHz is OK (stereo)
+		 */
+		switch (freq)
+		{
+		case 1 : rFreq = 32000; break;
+		case 2 : rFreq = 24000; break;
+		case 3 : rFreq = 16000; break;
+		case 4 : rFreq =  8000; break;
+		default: rFreq = 48000;
+		}
+		if (py_audio_init(2, rFreq, (int)gain - 1, 0.9883f, gen_sine))
 			py_audio_start_streaming();
 	}
 	else
@@ -615,7 +739,7 @@ int __attribute__((section(".itcmram"))) SendUDP(const unsigned char *b, unsigne
 	struct netbuf *nb;
 	if (udpIPdest.addr != 0)
 	{
-		SCB_CleanDCache_by_Addr((uint32_t *)b, (int32_t)(((len + 32)/32) * 32));
+		////SCB_CleanDCache_by_Addr((uint32_t *)b, (int32_t)(((len + 32)/32) * 32));
 
 		nb = netbuf_new();
 		netbuf_ref(nb, b, len /*+ 1*/);
@@ -638,7 +762,7 @@ int __attribute__((section(".itcmram"))) SendTOFUDP(const unsigned char *b, unsi
 	struct netbuf *nb;
 	if (udpIPdest.addr != 0)
 	{
-		SCB_CleanDCache_by_Addr((uint32_t *)b, (int32_t)(((len + 32)/32) * 32));
+		////SCB_CleanDCache_by_Addr((uint32_t *)b, (int32_t)(((len + 32)/32) * 32));
 
 		nb = netbuf_new();
 		netbuf_ref(nb, b, len /*+ 1*/);
