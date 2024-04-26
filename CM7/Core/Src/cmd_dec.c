@@ -24,6 +24,7 @@
 #include "PDM_MIC.h"
 #include "PWM_servo.h"
 #include "power_mngt.h"
+#include "app_tof.h"
 
 #include "usbd_main.h"
 
@@ -54,6 +55,8 @@ ECMD_DEC_Status CMD_ipaddr(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_syscfg(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_setcfg(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_syserr(TCMD_DEC_Results *res, EResultOut out);
+ECMD_DEC_Status CMD_dumpm(TCMD_DEC_Results *res, EResultOut out);
+ECMD_DEC_Status CMD_bootld(TCMD_DEC_Results *res, EResultOut out);
 
 ECMD_DEC_Status CMD_pmicr(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_pmicw(TCMD_DEC_Results *res, EResultOut out);
@@ -63,6 +66,7 @@ ECMD_DEC_Status CMD_rawspi(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_spiclk(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_spitr(TCMD_DEC_Results* res, EResultOut out);
 
+#if 0
 ECMD_DEC_Status CMD_cid(TCMD_DEC_Results* res, EResultOut out);
 ECMD_DEC_Status CMD_rreg(TCMD_DEC_Results* res, EResultOut out);
 ECMD_DEC_Status CMD_wreg(TCMD_DEC_Results* res, EResultOut out);
@@ -74,6 +78,7 @@ ECMD_DEC_Status CMD_fslice(TCMD_DEC_Results* res, EResultOut out);
 ECMD_DEC_Status CMD_noop(TCMD_DEC_Results* res, EResultOut out);
 ECMD_DEC_Status CMD_peek(TCMD_DEC_Results* res, EResultOut out);
 ECMD_DEC_Status CMD_poke(TCMD_DEC_Results* res, EResultOut out);
+#endif
 
 ECMD_DEC_Status CMD_res(TCMD_DEC_Results* res, EResultOut out);
 
@@ -82,6 +87,9 @@ ECMD_DEC_Status CMD_i2cwr(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_i2c2rr(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_i2c2wr(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_i2cclk(TCMD_DEC_Results *res, EResultOut out);
+
+ECMD_DEC_Status CMD_tofc(TCMD_DEC_Results *res, EResultOut out);
+ECMD_DEC_Status CMD_tofp(TCMD_DEC_Results *res, EResultOut out);
 
 ECMD_DEC_Status CMD_cgpio(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_pgpio(TCMD_DEC_Results *res, EResultOut out);
@@ -113,6 +121,7 @@ ECMD_DEC_Status CMD_volt(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_udpip(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_usb(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_mic(TCMD_DEC_Results *res, EResultOut out);
+ECMD_DEC_Status CMD_mics(TCMD_DEC_Results *res, EResultOut out);
 
 ECMD_DEC_Status CMD_cservo(TCMD_DEC_Results *res, EResultOut out);
 ECMD_DEC_Status CMD_sservo(TCMD_DEC_Results *res, EResultOut out);
@@ -191,6 +200,18 @@ const TCMD_DEC_Command Commands[] = {
 				.manPage = 9,
 		},
 		{
+				.cmd = (const char *)"dumpm",
+				.help = (const char *)"display MCU memory <addr> <bytes> [mode]",
+				.func = CMD_dumpm,
+				.manPage = 9,			/* update! */
+		},
+		{
+				.cmd = (const char *)"bootld",
+				.help = (const char *)"activate bootloader",
+				.func = CMD_bootld,
+				.manPage = 9,			/* update! */
+		},
+		{
 				.cmd = (const char *)"usr",
 				.help = (const char *)"define [-p|-d [cmd [cmd; ...]]] print, define or invoke usr command",
 				.func = CMD_usr,
@@ -232,6 +253,7 @@ const TCMD_DEC_Command Commands[] = {
 				.func = CMD_spiclk,
 				.manPage = 16,
 		},
+#if 0
 		{
 				.help = (const char*)"CHIP SPECIFIC:",
 				.sepLine = 1,
@@ -302,8 +324,9 @@ const TCMD_DEC_Command Commands[] = {
 				.func = CMD_wreg,			/* alias - the same */
 				.manPage = 24,
 		},
+#endif
 		{
-				.help = (const char*)"I2C:",
+				.help = (const char*)"I2C IMU:",
 				.sepLine = 25,
 		},
 		{
@@ -516,8 +539,14 @@ const TCMD_DEC_Command Commands[] = {
 		},
 		{
 				.cmd = (const char *)"mic",
-				.help = (const char *)"enable <1..51 as db> or disable [0] microphone [0..4] frequency, [0|1] sine generation",
+				.help = (const char *)"enable <1..52> [freq] [sine] as db> [0|1] or disable [0] microphone",
 				.func = CMD_mic,
+				.manPage = 63,		//FIX it
+		},
+		{
+				.cmd = (const char *)"mics",
+				.help = (const char *)"capture PDM signal",
+				.func = CMD_mics,
 				.manPage = 63,		//FIX it
 		},
 		{
@@ -536,6 +565,22 @@ const TCMD_DEC_Command Commands[] = {
 				.cmd = (const char *)"pwr",
 				.help = (const char *)"set <num> for power mode",
 				.func = CMD_pwr,
+				.manPage = 63,		//FIX it
+		},
+		{
+				.help = (const char*)"SENSORS:",
+				.sepLine = 1,
+		},
+		{
+				.cmd = (const char *)"tofc",
+				.help = (const char *)"initialize and start TOF sensor, [-i] endless on UART",
+				.func = CMD_tofc,
+				.manPage = 63,		//FIX it
+		},
+		{
+				.cmd = (const char *)"tofp",
+				.help = (const char *)"toggle size and ambient [0|1] [0|1]",
+				.func = CMD_tofp,
 				.manPage = 63,		//FIX it
 		},
 #ifdef UART_TEST
@@ -1219,6 +1264,25 @@ ECMD_DEC_Status CMD_debug(TCMD_DEC_Results *res, EResultOut out)
 	return CMD_DEC_OK;
 }
 
+ECMD_DEC_Status CMD_dumpm(TCMD_DEC_Results *res, EResultOut out)
+{
+	hex_dump((uint8_t *)res->val[0], (uint16_t)res->val[1], (int)res->val[2], out);
+
+	return CMD_DEC_OK;
+}
+
+ECMD_DEC_Status CMD_bootld(TCMD_DEC_Results *res, EResultOut out)
+{
+	(void)out;
+	(void)res;
+
+	RTC->BKP0R = 0x0000DF59;
+	RTC->BKP7R = 0x00000001;
+	NVIC_SystemReset();
+
+	return CMD_DEC_OK;
+}
+
 ECMD_DEC_Status CMD_usr(TCMD_DEC_Results *res, EResultOut out)
 {
 	if (strncmp(res->opt, "-d", 2) == 0)
@@ -1706,8 +1770,16 @@ ECMD_DEC_Status CMD_usb(TCMD_DEC_Results *res, EResultOut out)
 
 ECMD_DEC_Status CMD_mic(TCMD_DEC_Results *res, EResultOut out)
 {
-	//set the gain, 0 is off, parameter 2 is 0..4 for frequency, paramter 3 for generate sine (not MIC)
+	//set the gain, 0 is off
 	PDM_MIC_Init(res->val[0], res->val[1], res->val[2]);
+
+	return CMD_DEC_OK;
+}
+
+ECMD_DEC_Status CMD_mics(TCMD_DEC_Results *res, EResultOut out)
+{
+	//sample one PDM MIC buffer
+	PDM_MIC_Sample();
 
 	return CMD_DEC_OK;
 }
@@ -2252,6 +2324,7 @@ ECMD_DEC_Status CMD_spitr(TCMD_DEC_Results* res, EResultOut out)
 	return CMD_DEC_OK;
 }
 
+#if 0
 /* the SPI commands require the allocation of buffers, SPItr and SPIrx can be the same buffer
  * convert the uint32_t in TCMD_DEC_Results into the right format in the buffer
  */
@@ -2447,6 +2520,7 @@ ECMD_DEC_Status CMD_noop(TCMD_DEC_Results* res, EResultOut out)
 
 	return CMD_DEC_OK;
 }
+#endif
 
 ECMD_DEC_Status CMD_cint(TCMD_DEC_Results* res, EResultOut out)
 {
@@ -2587,6 +2661,39 @@ ECMD_DEC_Status CMD_sservo(TCMD_DEC_Results *res, EResultOut out)
 ECMD_DEC_Status CMD_pwr(TCMD_DEC_Results *res, EResultOut out)
 {
 	PWR_Set((int)res->val[0]);
+
+	return CMD_DEC_OK;
+}
+
+ECMD_DEC_Status CMD_tofc(TCMD_DEC_Results *res, EResultOut out)
+{
+	MX_TOF_Init();
+
+	if (strncmp(res->opt, "-i", 2) == 0)
+	{
+		/* endless on UART */
+		MX_TOF_Process();
+	}
+	else
+	{
+		/* release TOF thread, sending via network */
+		extern void ReleaseTOFTask(void);
+		ReleaseTOFTask();
+	}
+
+	return CMD_DEC_OK;
+}
+
+ECMD_DEC_Status CMD_tofp(TCMD_DEC_Results *res, EResultOut out)
+{
+	(void)out;
+	extern void toggle_resolution(void);
+	extern void toggle_signal_and_ambient(void);
+
+	if (res->val[0])
+		toggle_resolution();
+	if (res->val[1])
+		toggle_signal_and_ambient();
 
 	return CMD_DEC_OK;
 }

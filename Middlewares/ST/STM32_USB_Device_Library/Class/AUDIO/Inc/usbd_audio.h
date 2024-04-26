@@ -97,7 +97,7 @@
 
 #define AUDIO_OUT_STREAMING_CTRL                      0x02
 
-#define USBD_AUDIO_FREQ								  48000	//192000
+#define USBD_AUDIO_FREQ								  48000		//was: 32000 48000	//192000
 #define AUDIO_FS_BINTERVAL							  1
 #define AUDIO_HS_BINTERVAL							  1
 #define AUDIO_DEFAULT_VOLUME						  70

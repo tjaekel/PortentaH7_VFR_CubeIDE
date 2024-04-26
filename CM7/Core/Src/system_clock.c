@@ -122,7 +122,7 @@ int SetSysClock_PLL_HSE(uint8_t bypass, int lowspeed)
         										//25 : 62.5 MHz - OK, 24 : 60 MHz - OK
     }
     else {
-        RCC_OscInitStruct.PLL.PLLN = 196;		//192 = 480 MHz - with a 25 MHz XTAL! 196 = 490 MHz, 200 = 500 MHz - over-clocked
+        RCC_OscInitStruct.PLL.PLLN = 192;		//192 = 480 MHz - with a 25 MHz XTAL! 196 = 490 MHz, 200 = 500 MHz - over-clocked
         /* ATTENTION: when using Backup RAM: >450 MHz (value 180) fails: it crashes sometimes when accessing BackupRAM! */
     }
 #endif
@@ -182,9 +182,9 @@ int SetSysClock_PLL_HSE(uint8_t bypass, int lowspeed)
     /*
      * we run SAI4 here on PLL3, we can trim factional multiplier, USB runs on PLL1 (PLL) for 48 MHz or here on PLL3
      */
-    PeriphClkInitStruct.PLL3.PLL3M = 2; //5;
+    PeriphClkInitStruct.PLL3.PLL3M = 2;	//5;
     PeriphClkInitStruct.PLL3.PLL3N = 23; //192;
-    PeriphClkInitStruct.PLL3.PLL3P = 6; //20;					//SAI4, PDM MIC. same 48 MHz as USB - but a bit slower!
+    PeriphClkInitStruct.PLL3.PLL3P = 6; //20;					//SAI4, PDM MIC., trimmed for 48KHz
     PeriphClkInitStruct.PLL3.PLL3Q = 6;	//20;					//USB 48 KHz
     PeriphClkInitStruct.PLL3.PLL3R = 4;	//20;
     PeriphClkInitStruct.PLL3.PLL3RGE = RCC_PLL3VCIRANGE_1;
@@ -218,11 +218,11 @@ int SetSysClock_PLL_HSE(uint8_t bypass, int lowspeed)
     	PeriphClkInitStruct.SdmmcClockSelection = RCC_SDMMCCLKSOURCE_PLL2;
 
     	//enable also RTC: we use the BKPxx registers
-    	PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC | RCC_PERIPHCLK_USB | RCC_PERIPHCLK_SPI2 | RCC_PERIPHCLK_QSPI | RCC_PERIPHCLK_ADC | RCC_PERIPHCLK_SAI4A | RCC_PERIPHCLK_TIM;
-    	PeriphClkInitStruct.UsbClockSelection = RCC_USBCLKSOURCE_HSI48; //RCC_USBCLKSOURCE_PLL; 		//RCC_USBCLKSOURCE_PLL3;		//RCC_USBCLKSOURCE_HSI48;
+    	PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC | RCC_PERIPHCLK_USB | RCC_PERIPHCLK_SPI2 | RCC_PERIPHCLK_QSPI | RCC_PERIPHCLK_ADC /*| RCC_PERIPHCLK_SAI4A*/ | RCC_PERIPHCLK_TIM;
+    	PeriphClkInitStruct.UsbClockSelection = RCC_USBCLKSOURCE_PLL3;	//RCC_USBCLKSOURCE_HSI48; //RCC_USBCLKSOURCE_PLL; 		//RCC_USBCLKSOURCE_PLL3;		//RCC_USBCLKSOURCE_HSI48;
     	PeriphClkInitStruct.QspiClockSelection = RCC_QSPICLKSOURCE_PLL2;	//RCC_QSPICLKSOURCE_PLL; //RCC_QSPICLKSOURCE_PLL2;
     	PeriphClkInitStruct.AdcClockSelection = RCC_ADCCLKSOURCE_PLL2;
-    	PeriphClkInitStruct.Sai4AClockSelection = RCC_SAI4ACLKSOURCE_PLL3; //RCC_SAI4ACLKSOURCE_PLL; //RCC_SAI4ACLKSOURCE_PLL3;
+    	/* PeriphClkInitStruct.Sai4AClockSelection = RCC_SAI4ACLKSOURCE_PLL3; //RCC_SAI4ACLKSOURCE_PLL; //RCC_SAI4ACLKSOURCE_PLL3; */
     	PeriphClkInitStruct.Lptim345ClockSelection = RCC_LPTIM345CLKSOURCE_PCLK4;	//RCC_LPTIM345CLKSOURCE_D3PCLK1;	//RCC_LPTIM345CLKSOURCE_PLL2;
     	PeriphClkInitStruct.TIMPresSelection = RCC_TIMPRES_DESACTIVATED;	//RCC_TIMPRES_ACTIVATED;
     }

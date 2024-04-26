@@ -6,6 +6,7 @@
  */
 
 #include "I2C3_user.h"
+#include "BSP_errno.h"
 
 osSemaphoreId xSemaphoreI2C = NULL;
 I2C_HandleTypeDef  hi2c3;
@@ -355,4 +356,66 @@ int PMIC_Recover(void)
 #endif
 
 	  return 0;		//OK
+}
+
+/* for TOF sensor */
+int32_t TOF_I2C_Init_Func(void)
+{
+	return 0;
+}
+
+int32_t TOF_I2C_DeInit_Func(void)
+{
+	return 0;
+}
+
+int32_t TOF_GetTick_Func(void)
+{
+	return (int32_t)HAL_GetTick();
+}
+
+int32_t TOF_I2C_WriteReg_Func(uint16_t DevAddr, uint16_t Reg, uint8_t *pData, uint16_t Length)
+{
+	  int32_t ret = BSP_ERROR_NONE;
+
+	  if (osSemaphoreAcquire(xSemaphoreI2C, portMAX_DELAY /*1000*/) == osOK)
+	  {
+		  if (HAL_I2C_Mem_Write(&hi2c3, DevAddr, Reg, I2C_MEMADD_SIZE_16BIT, pData, Length, USER_I2C_TIMEOUT) != HAL_OK)
+		  {
+			  if (HAL_I2C_GetError(&hi2c3) == HAL_I2C_ERROR_AF)
+			  {
+				  ret = BSP_ERROR_BUS_ACKNOWLEDGE_FAILURE;
+			  }
+			  else
+			  {
+				  ret =  BSP_ERROR_PERIPH_FAILURE;
+			  }
+		  }
+		  osSemaphoreRelease(xSemaphoreI2C);
+	  }
+
+	  return ret;
+}
+
+int32_t TOF_I2C_ReadReg_Func(uint16_t DevAddr, uint16_t Reg, uint8_t *pData, uint16_t Length)
+{
+	  int32_t ret = BSP_ERROR_NONE;
+
+	  if (osSemaphoreAcquire(xSemaphoreI2C, portMAX_DELAY /*1000*/) == osOK)
+	  {
+		  if (HAL_I2C_Mem_Read(&hi2c3, DevAddr, Reg, I2C_MEMADD_SIZE_16BIT, pData, Length, USER_I2C_TIMEOUT) != HAL_OK)
+		  {
+			  if (HAL_I2C_GetError(&hi2c3) != HAL_I2C_ERROR_AF)
+			  {
+				  ret =  BSP_ERROR_BUS_ACKNOWLEDGE_FAILURE;
+			  }
+			  else
+			  {
+				  ret =  BSP_ERROR_PERIPH_FAILURE;
+			  }
+		  }
+		  osSemaphoreRelease(xSemaphoreI2C);
+	  }
+
+	  return ret;
 }

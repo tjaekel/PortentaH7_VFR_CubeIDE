@@ -52,6 +52,7 @@ typedef struct {
 } TCMD_DEC_Results;
 
 typedef ECMD_DEC_Status (*TCmdFunc)(TCMD_DEC_Results *res, EResultOut out);
+typedef void (*TCallFunc)(void);
 
 typedef struct {
 	const char *cmd;						/* command key word */

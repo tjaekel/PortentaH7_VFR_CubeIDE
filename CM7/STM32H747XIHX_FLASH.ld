@@ -18,10 +18,10 @@ _Min_Stack_Size = 0x800 ; 	/* required amount of stack */
 /* Memories definition */
 MEMORY
 {
-  FLASH   (rx)   : ORIGIN = 0x08040000, LENGTH = 2048K - 0x40000    /* with Arduino Bootloader: actual start is 0x08000000 and actual length is 2048K */
-  DTCMRAM (rwx)  : ORIGIN = 0x20000000 + (((166 * 4) + 7) & 0xFFFFFFF8), LENGTH = 128K - (((166 * 4) + 7) & 0xFFFFFFF8) /* with Bootloader */
-  /* FLASH   (rx)   : ORIGIN = 0x08000000, LENGTH = 2048K	/* without Bootloader */
-  /* DTCMRAM (rw)   : ORIGIN = 0x20000000, LENGTH = 128K	/* without Bootloader */
+  /* FLASH   (rx)   : ORIGIN = 0x08040000, LENGTH = 2048K - 0x40000    /* with Arduino Bootloader: actual start is 0x08000000 and actual length is 2048K */
+  /* DTCMRAM (rwx)  : ORIGIN = 0x20000000 + (((166 * 4) + 7) & 0xFFFFFFF8), LENGTH = 128K - (((166 * 4) + 7) & 0xFFFFFFF8) /* with Bootloader */
+  FLASH   (rx)   : ORIGIN = 0x08000000, LENGTH = 2048K	/* without Bootloader */
+  DTCMRAM (rw)   : ORIGIN = 0x20000000, LENGTH = 128K	/* without Bootloader */
   
   RAM_D1 (rw)    : ORIGIN = 0x24000000, LENGTH = 512K	/* MPU config */
   RAM_D2 (rw)    : ORIGIN = 0x30000000, LENGTH = 288K	/* MPU config */
@@ -43,7 +43,7 @@ SECTIONS
   } >FLASH
 
   /* The program code and other data into "FLASH" Rom type memory */
-  .text :
+  .text (READONLY) :
   {
     . = ALIGN(4);
     *(.text)           /* .text sections (code) */
@@ -60,7 +60,7 @@ SECTIONS
   } >FLASH
 
   /* Constant data into "FLASH" Rom type memory */
-  .rodata :
+  .rodata (READONLY) :
   {
     . = ALIGN(4);
     *(.rodata)         /* .rodata sections (constants, strings, etc.) */
@@ -68,13 +68,13 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
-  .ARM.extab   : { 
+  .ARM.extab  (READONLY) : { 
     . = ALIGN(4);
     *(.ARM.extab* .gnu.linkonce.armextab.*)
     . = ALIGN(4);
   } >FLASH
   
-  .ARM : {
+  .ARM (READONLY) : {
     . = ALIGN(4);
     __exidx_start = .;
     *(.ARM.exidx*)
@@ -82,7 +82,7 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
-  .preinit_array :
+  .preinit_array (READONLY) :
   {
     . = ALIGN(4);
     PROVIDE_HIDDEN (__preinit_array_start = .);
@@ -91,7 +91,7 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
   
-  .init_array :
+  .init_array (READONLY) :
   {
     . = ALIGN(4);
     PROVIDE_HIDDEN (__init_array_start = .);
@@ -101,7 +101,7 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
   
-  .fini_array :
+  .fini_array (READONLY) :
   {
     . = ALIGN(4);
     PROVIDE_HIDDEN (__fini_array_start = .);

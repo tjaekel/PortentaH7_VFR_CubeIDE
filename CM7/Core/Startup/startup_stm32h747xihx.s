@@ -14,6 +14,7 @@
 
 .global  g_pfnVectors
 .global  Default_Handler
+.global  Reset_Handler
 
 /* start address for the initialization values of the .data section, defined in linker script */
 .word  _sidata
@@ -36,9 +37,8 @@
  * @retval : None
 */
 
-  .section  .text.Reset_Handler
-  .weak  Reset_Handler
-  .type  Reset_Handler, %function
+  	.section  .text.Reset_Handler
+  	.type  Reset_Handler, %function
 Reset_Handler:
   ldr   sp, =_estack      /* set stack pointer - actually done by HW, but if we relocate vector table ... */
 
@@ -96,7 +96,7 @@ LoopCopyITCMInit:
 /* Call the application's entry point.*/
   bl  main
   bx  lr
-.size  Reset_Handler, .-Reset_Handler
+	.size  Reset_Handler, .-Reset_Handler
 
 /**
  * @brief  This is the code that gets called when the processor receives an
@@ -105,34 +105,32 @@ LoopCopyITCMInit:
  * @param  None
  * @retval None
 */
-
 /*
 	.extern HardFault_Handler_C
 */
 /*
-	.global HardFault_Handler
 	.section .text.HardFault_Handler,"ax",%progbits
+	.type  HardFault_Handler, %function
 HardFault_Handler:
-*/
-/*
+/ *
 	TST 	LR, #4
   	ITE 	EQ
   	MRSEQ 	R0, MSP
   	MRSNE 	R0, PSP
   	LDR		R1,	=HardFault_Handler_C
   	BX		R1
-*/
-/*
 HardFault_Loop:
 	b	HardFault_Loop
-  	.size	HardFault_Handler, .-HardFault_Handler
+* /
+	b	HardFault_Handler
+	//.size	HardFault_Handler, .-HardFault_Handler
 */
 
-	.global Default_Handler
-    .section  .text.Default_Handler,"ax",%progbits
+    .section	.text.Default_Handler,"ax",%progbits
 Default_Handler:
-  	b 	Default_Handler
-    .size  Default_Handler, .-Default_Handler
+Infinite_Loop:
+	b	Infinite_Loop
+	.size	Default_Handler, .-Default_Handler
 
 /******************************************************************************
 *

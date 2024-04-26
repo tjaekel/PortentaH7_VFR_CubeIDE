@@ -25,9 +25,10 @@ extern "C" {
  * macro for Version Info Welcome message
  */
 #define STR_CHIP			"STM32H747"
-#define STR_FW_VERSION		"V2.10"
+#define STR_FW_VERSION		"V1.10"
+#define STR_FW_COMPLETE		"\r\n\r\n**** Portenta H7 VFR " STR_FW_VERSION " ****\r\n--------------------------\r\n"
 
-#define PRINT_VERSION		UART_Send((uint8_t *)"\r\n\r\n**** Portenta H7 VFR " STR_FW_VERSION " ****\r\n-------------------------------\r\n", 70, UART_OUT)
+#define PRINT_VERSION		UART_Send((uint8_t *)STR_FW_COMPLETE, strlen(STR_FW_COMPLETE), UART_OUT)
 #define PROJECT_NAME		"Portenta H7 VFR"
 
 ////void Error_Handler(void);

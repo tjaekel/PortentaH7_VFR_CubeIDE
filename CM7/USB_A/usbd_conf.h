@@ -66,7 +66,7 @@
 #define USBD_DEBUG_LEVEL                      0
 
 /* AUDIO Class Config */
-#define USBD_AUDIO_FREQ                       48000
+#define USBD_AUDIO_FREQ                       48000	//32000	//48000
 
 /* MSC Class Config */
 #define MSC_MEDIA_PACKET                      512

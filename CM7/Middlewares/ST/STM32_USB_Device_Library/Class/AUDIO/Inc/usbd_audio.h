@@ -97,7 +97,7 @@
 
 #define AUDIO_OUT_STREAMING_CTRL                      0x02
 
-#define USBD_AUDIO_FREQ								  48000	//192000
+#define USBD_AUDIO_FREQ								  48000	//was: 32000 48000	//192000
 
 #define AUDIO_OUT_PACKET                              (uint32_t)(((USBD_AUDIO_FREQ * 2 * 2) / 1000))
 //#define AUDIO_OUT_PACKET							  ((uint16_t)960u)

@@ -110,14 +110,16 @@ int GPIO_Config(unsigned long mask, unsigned long odMask)
 		shiftMask <<= 1;
 	}
 
+#if 0
+	/* actually it comes from there - not need to store again */
 	//store in RTC registers
 	{
+		/* ATTENTION: not really agnostic if we change SysCfg! */
 		uint32_t *rtcBkpReg = (uint32_t *)&RTC_START_BKP_REG;
-		//RTC->BKP7R = mask;
-		//RTC->BKP8R = odMask;
-		*(rtcBkpReg + 7) = mask;
-		*(rtcBkpReg + 8) = odMask;
+		*(rtcBkpReg + 8) = mask;
+		*(rtcBkpReg + 9) = odMask;
 	}
+#endif
 
 	return 0;		//OK, no error
 }

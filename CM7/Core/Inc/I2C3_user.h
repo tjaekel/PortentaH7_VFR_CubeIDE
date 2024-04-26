@@ -33,4 +33,11 @@ int I2CUser_MemReadEx(uint16_t slaveAddr, uint16_t regAddr, uint8_t *pData, uint
 
 int PMIC_Recover(void);				//to external board, recover PMIC on other Portenta H7
 
+/* for TOF sensor */
+int32_t TOF_I2C_Init_Func(void);
+int32_t TOF_I2C_DeInit_Func(void);
+int32_t TOF_GetTick_Func(void);
+int32_t TOF_I2C_WriteReg_Func(uint16_t, uint16_t, uint8_t *, uint16_t);
+int32_t TOF_I2C_ReadReg_Func(uint16_t, uint16_t, uint8_t *, uint16_t);
+
 #endif /* I2C3_USER_H_ */

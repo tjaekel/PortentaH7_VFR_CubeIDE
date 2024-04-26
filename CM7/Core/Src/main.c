@@ -33,6 +33,12 @@
 
 #include "power_mngt.h"
 
+/** TODO:
+ * fix index for QSPI man pages
+ * update man pages and flash QSPI chip
+ * add PDM sine pattern and play instead of MICs (as reference)
+ */
+
 #ifndef HSEM_ID_0
 #define HSEM_ID_0 (0U) /* HW semaphore 0*/
 #endif
@@ -82,15 +88,28 @@ const osThreadAttr_t GPIOINT_attributes = {
   .priority = (osPriority_t) osPriorityNormal
 };
 
+osThreadId_t TOFHandle;
+const osThreadAttr_t TOFThread_attributes = {
+  .name = "TOFThread",
+  .stack_size = 256 * 4,						//XXXX !!
+  .priority = (osPriority_t) osPriorityNormal
+};
+
 osSemaphoreId xSemaphoreGPIOINT   = NULL;
+osSemaphoreId xSemaphoreTOF		  = NULL;
 
 static void MX_GPIO_Init(void);
 static void MPU_Config(void);
+#if 0
+static void MX_CRC_Init(void);
+CRC_HandleTypeDef hcrc;
+#endif
 
 void StartDefaultTask(void *argument);
 void StartUARTTask(void *argument);
 void StartThread(void *argument);
 void GPIOINTTask(void *argument);
+extern void StartTOFTask(void *argument);		//TOF sensor thread
 
 /**
   * @brief  The application entry point.
@@ -128,14 +147,14 @@ int main(void)
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
-#if 0
-  //just if use bootloader and start from 0x08040000
-  unsigned long vectTable;
+#ifdef ARDUINO_BOOTLOADER
+  //just if using bootloader and start from 0x08040000
+  ////unsigned long vectTable;
 
-  vectTable = (unsigned long)SCB->VTOR;
+  ////vectTable = (unsigned long)SCB->VTOR;
   SCB->VTOR = (unsigned long)0x08040000;
   ////SCB->VTOR = (unsigned long)0x20000000;	//it is not copied yet! - the old bootloader table is there
-  vectTable = (unsigned long)SCB->VTOR;
+  ////vectTable = (unsigned long)SCB->VTOR;
 #endif
 
   if (SetSysClock_PLL_HSE(1, 0) == 0)
@@ -206,17 +225,22 @@ int main(void)
 #endif
 
   ADC3_Init();
+#if 0
+  MX_CRC_Init();
+#endif
 
   /* Initialize RTOS scheduler */
    osKernelInitialize();
 
    xSemaphoreGPIOINT   = osSemaphoreNew(1, 0, NULL);
+   xSemaphoreTOF	   = osSemaphoreNew(1, 0, NULL);
 
   /* creation of defaultTask */
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
   /* add threads, ... */
   UARTTaskHandle = osThreadNew(StartUARTTask, NULL, &UARTTask_attributes);
   GPIOINTHandle  = osThreadNew(GPIOINTTask, NULL, &GPIOINT_attributes);
+  TOFHandle  	 = osThreadNew(StartTOFTask, NULL, &TOFThread_attributes);
 
   if (HTTPD_OutInit())
 	  /* Init thread for network - terminates itself */
@@ -432,6 +456,23 @@ static void MX_GPIO_Init(void)
   	GPIO_InitStruct.Pin = GPIO_PIN_3;
   	HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 }
+
+#if 0
+static void MX_CRC_Init(void)
+{
+  hcrc.Instance = CRC;
+  hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_ENABLE;
+  hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_ENABLE;
+  hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_NONE;
+  hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLE;
+  hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_BYTES;
+  if (HAL_CRC_Init(&hcrc) != HAL_OK)
+  {
+    ////Error_Handler();
+  }
+  __HAL_CRC_DR_RESET(&hcrc);
+}
+#endif
 
 /**
   * @brief  Function implementing the defaultTask thread.

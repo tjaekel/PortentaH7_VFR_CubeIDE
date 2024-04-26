@@ -302,7 +302,7 @@ AUDIO_SAMPLE_FREQ(USBD_AUDIO_FREQ),   /* Audio sampling frequency coded on 3 byt
 AUDIO_IN_EP,						  /* bEndpointAddress */
 0x01,								  /* bmAttributes <---- 0x01, 0x05/0x0D invalid  // isoc, Synchronous //0x01 */
 0xC0,	//0xC0,								  /* wMaxPacketSize <---- 0x03C0,  // 960 bytes (2 bytes per ch * 10 ch * 48 [KHz] samples / frame) */
-0x00,	//0x03,								  /* wMaxPacketSize */
+0x00,	//0x03,								  /* wMaxPacketSize 0xC0 for 48 * 2 * 2 */
 0x01,								  /* bInterval */
 //0x00,								  /* bRefresh - UNKNOWN */
 //0x00,								  /* bSynchAddress UNKNOWN */
@@ -550,14 +550,14 @@ static uint8_t __attribute__((section(".itcmram"))) USBD_AUDIO_DataIn (USBD_Hand
   if (USBInIdxRd >= USB_BUF_SIZE)
 	  USBInIdxRd = 0;
 
-#if TIMING_DEBUG
+#ifdef TIMING_DEBUG_USB
   if (USBInIdxRd)
 	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
   else
 	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
 #endif
 
-#if 0
+#if 1
   USBD_AUDIO_CpyBuf(USBInIdxRd);
 #endif
 
@@ -566,7 +566,7 @@ static uint8_t __attribute__((section(".itcmram"))) USBD_AUDIO_DataIn (USBD_Hand
 
 int16_t *GET_USBBuffer(void)
 {
-	return (int16_t *)(USB_BUF_ADDR + USBInIdxRd);
+	return (int16_t *)(USB_BUF_ADDR /*+ USBInIdxRd*/);
 }
 
 /**
@@ -930,28 +930,18 @@ void USBD_AUDIO_SetMode(int mode)
 	//mode = 4 is VCP UART
 }
 
-#if 0
 void USBD_AUDIO_ClearBuffer(void)
 {
 	/* disable INT - done on upper level */
 
 	////USBInIdxRd = 0;	/* already done before called */
 	////USBInIdxWr = 0;
-	sUSBFrameCnt = 1;
 
-	/* double buffer 1: */
-	*((unsigned long *)(USB_BUF_ADDR)) = 0;							/* sUSBFrameCnt = 0 */
-	*((unsigned long *)(USB_BUF_ADDR + 4)) = 0xFFFFFFFF;			/* invalid */
-	memset(USB_BUF_ADDR + 8, 0, AUDIO_TOTAL_BUF_SIZE - 8);			/* clear all */
-
-	/* double buffer 2: */
-	*((unsigned long *)(USB_BUF_ADDR + AUDIO_TOTAL_BUF_SIZE)) = 1; 					/* sUSBFrameCnt = 1 */
-	*((unsigned long *)(USB_BUF_ADDR + AUDIO_TOTAL_BUF_SIZE + 4)) = 0xFFFFFFFF;		/* invalid */
-	memset(USB_BUF_ADDR + AUDIO_TOTAL_BUF_SIZE + 8, 0, AUDIO_TOTAL_BUF_SIZE - 8); 	/* clear all */
+	/* double buffer 1 and 2: */
+	memset(USB_BUF_ADDR, 0, USB_BUF_SIZE);			/* clear all */
 
 	SCB_CleanDCache_by_Addr((uint32_t *)USB_BUF_ADDR, USB_BUF_SIZE);
 }
-#endif
 
 /**
   * @}

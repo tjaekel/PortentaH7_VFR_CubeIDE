@@ -31,8 +31,8 @@
 #define AUDIO_IN_IRQ_PREPRIO        ((uint32_t)15)
 
 //this is correct for 48 KHz, just a bit distortion and a bit of noise
-#define PDM_BUFFER_SIZE     (48 * 32)		//48KHz, aligned with USB streaming, DoubleBuffer
-#define PCM_BUFFER_SIZE     (48 * 2 * 2)	//unclear the size relation between both
+#define PDM_BUFFER_SIZE     ((48 * 64 * 2 * 2) / 8)			//48KHz, 64 decimation, 2 channels, DoubleBuffer * 2
+#define PCM_BUFFER_SIZE     (48 * 2 * 2)					//as uint16_t buffer = for 2 bytes per samples, two channels * 2, Double Buffer * 2
 
 void py_audio_deinit();
 int py_audio_init(size_t g_channels, uint32_t frequency, int gain_db, float highpass, int gen_sine);

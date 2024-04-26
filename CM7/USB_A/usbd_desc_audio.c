@@ -39,13 +39,13 @@
 #define USBD_VID                      0x0483
 #define USBD_PID                      0x5731	//5730 is speaker, 5731 is microphone
 #define USBD_LANGID_STRING            0x410	//0x409
-#define USBD_MANUFACTURER_STRING      "Torsten Jaekel"
-#define USBD_PRODUCT_HS_STRING        "VFR Streaming in HS Mode"
-#define USBD_PRODUCT_FS_STRING        "VFR Streaming in FS Mode"
-#define USBD_CONFIGURATION_HS_STRING  "VFR Config"
-#define USBD_INTERFACE_HS_STRING      "VFR Interface"
-#define USBD_CONFIGURATION_FS_STRING  "VFR Config"
-#define USBD_INTERFACE_FS_STRING      "VFR Interface"
+#define USBD_MANUFACTURER_STRING      "WAcouSense"
+#define USBD_PRODUCT_HS_STRING        "WAcouSense Streaming in HS Mode"
+#define USBD_PRODUCT_FS_STRING        "WAcouSense Streaming in FS Mode"
+#define USBD_CONFIGURATION_HS_STRING  "WAcouSense Config"
+#define USBD_INTERFACE_HS_STRING      "WAcouSense Interface"
+#define USBD_CONFIGURATION_FS_STRING  "WAcouSense Config"
+#define USBD_INTERFACE_FS_STRING      "WAcouSense Interface"
 #define USBD_SERIAL_STRING			  "112233"
 
 /* Private macro -------------------------------------------------------------*/

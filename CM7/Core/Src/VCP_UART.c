@@ -17,6 +17,7 @@ unsigned char uartPrintBuffer[UART_RX_BUFFER_SIZE];				//global, for print_log()
 static int lastUARTchar;
 static unsigned char lastUARTStr[UART_RX_BUFFER_SIZE];
 static unsigned int idx = 0;
+static unsigned char pendingChar = 0;
 
 int UART_getChar(void)
 {
@@ -28,13 +29,20 @@ int UART_getChar(void)
 	int l;
 	while (1)
 	{
+		if (pendingChar)
+		{
+			rx = pendingChar;
+			pendingChar = 0;
+			return (int)rx;
+		}
+
 		l = CDC_GetRx(&rx, 1);
 		if (l)
 			return (int)rx;
 		else
 		{
 			osThreadYield();
-			osDelay(5);	//XXXX
+			////osDelay(5);	//XXXX
 			/* ATT: copy and paste in UART terminal or sending a file (both larger) - CRASHES! */
 		}
 	}
@@ -45,9 +53,15 @@ int UART_WaitForChar(void)
 	unsigned char rx;
 
 	if (CDC_GetRx(&rx, 1))
+	{
+		pendingChar = rx;
 		return 1;
+	}
 	else
+	{
+		pendingChar = 0;
 		return 0;
+	}
 }
 
 /**
